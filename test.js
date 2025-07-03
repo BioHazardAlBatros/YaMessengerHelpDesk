@@ -1,2 +1,0 @@
-let response = await fetch("https://botapi.messenger.yandex.net/bot/v1/chats/create",{method:"POST",Headers:{Authorization:"OAuth 12313212313212", "Content-Type":"application/json"},body:{}});
-console.log(response);
