@@ -21,11 +21,10 @@ export type Image = {
     name?: string;
 };
 
-type SenderMisc =
-    {
+type SenderMisc = {
         display_name?: string;
         robot?: boolean;
-    };
+};
 interface SenderChannel extends SenderMisc {
     id: string;
     login?: never;
