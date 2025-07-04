@@ -21,6 +21,11 @@ export type Image = {
     name?: string;
 };
 
+export type Sticker = {
+    id: string;
+    set_id: string;
+}
+
 type SenderMisc = {
         display_name?: string;
         robot?: boolean;
@@ -48,8 +53,9 @@ export type Update = {
     timestamp: number;
     message_id: number;
     update_id: number;
+    forwarded_messages?: Update[];
     file?: File;
-    images?: Image[];
+    images?: Image[][];
 }
 
 export type User = {

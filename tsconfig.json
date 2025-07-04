@@ -3,7 +3,9 @@
     "typeRoots": [ "./global.d.ts", "./node_modules/@types" ],
     "module": "commonjs",
     "target": "es6",
-    "lib": [ "es6","DOM" ],
+    "lib": [ "es6", "DOM" ],
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
     "sourceMap": true
   },
   "exclude": [
