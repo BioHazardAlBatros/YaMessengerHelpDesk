@@ -90,7 +90,7 @@ export async function sendRequest<req, res>(endpointRoute: string, data: req, re
 
     const result: Response = await response.json();
     if (!result.ok)
-        console.log(`Request failed. Reason:${result.description} \nData:${reqBody}\n`);
+        console.error(`Request failed. Reason:${result.description} \nData:${reqBody}\n`);
 
     return result as res;
 }
