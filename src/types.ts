@@ -1,3 +1,11 @@
+export type Config = {
+    updateOffset: number,
+    userThreads: Map<string, number>,
+    helpdeskChat: Chat,
+    admins: User[];
+}
+
+
 export type Chat = {
     type: "private" | "group" | "channel";
     id?: string;
