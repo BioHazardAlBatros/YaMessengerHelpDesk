@@ -1,13 +1,5 @@
 import type { Chat, Button, File, Image, Sender, Vote, Update, User } from "./types";
 
-const base_url:string = process.env.MOCK_BASE_URL;
-
-//convert to type
-const reqHeaders = {
-    Authorization: `OAuth ${process.env.TOKEN}`,
-    "Content-Type": "application/json"  // <--- must be changed, file loading needs different fields
-}
-
 //File Response opens up a stream, needs other response type.
 export type Response = {
     ok: boolean;
@@ -71,6 +63,14 @@ export type SendMessageRequest = MessageRequestChat | MessageRequestUser;
 export type UpdateRequest = {
     limit?: number;
     offset?: number;
+}
+
+const base_url: string = process.env.MOCK_BASE_URL;
+
+//convert to type
+const reqHeaders = {
+    Authorization: `OAuth ${process.env.TOKEN}`,
+    "Content-Type": "application/json"  // <--- must be changed, file loading needs different fields
 }
 
 export async function sendRequest<req, res>(endpointRoute: string, data: req, requestName: string = "unnamed", reqMethod: string = "POST"): Promise<res> {

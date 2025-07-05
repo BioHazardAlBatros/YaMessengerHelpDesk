@@ -2,8 +2,14 @@ import { getKeyByVal,sleep } from "./util";
 import type { Chat, Button, File, Image, Sender, Vote, Update, User, Config } from "./types";
 import { sendRequest, type Response, type CreateChatRequest, type SendMessageRequest, type UpdateRequest } from "./requests";
 
+/*
+IF IT'S IMPOSSIBLE TO RECEIVE THREAD_ID -> WILL HAVE TO CREATE NEW CHATS EACH TIME AND STORE THEIR IDS
+*/
+
 export class Bot {
-    private readonly token: string;
+    private readonly token: string; // maybe unneeded
+    private botEnabled: boolean;
+
     private updateOffset: number;
     private userThreads: Map<string,number>;
 
@@ -12,30 +18,31 @@ export class Bot {
 
     constructor(newToken: string,config:Config) {
         this.token = newToken;
-        this.helpdeskChat = { type: "group", id:"missing" };
+        this.botEnabled = true;
         //SHOULD BE LOADED FROM FILE IF FILE IS PRESENT AND CORRECT
+        this.helpdeskChat = { type: "group", id: "missing" };
         this.updateOffset = 0;
         this.userThreads = new Map();
+        //
     };
 
     async run(): Promise<void> {
         console.log("Bot enabled. Trying to poll updates...");
 
-        if (this.helpdeskChat.id == "missing")
+        if (this.helpdeskChat.id == "missing") //ask for confirmation????????
             await this.createHelpdeskChat();
 
-        while (true)
+        while (this.botEnabled)
         {
             const updates: Update[] = await this.getUpdates({limit:25,offset:this.updateOffset});
-            updates.forEach(await this.processUpdate);
+            updates.forEach(await this.processUpdate,this); //current {this} has to be passed since the context will change inside callback function otherwise
             await sleep(10000);
+
           //  this.sendMessage({ chat_id: "123312", text: "Hello world", inline_keyboard: [{ text: "Hello" }] });
         }
-
     };
 
     async processUpdate(data: Update): Promise<void> {
-
         //Getting the max update_id from the UpdateArr to set the new update offset, because every record with id lower than that is not available anymore
         if (data.update_id >= this.updateOffset)
             this.updateOffset = data.update_id + 1;
@@ -53,22 +60,25 @@ export class Bot {
 
         //
         if (isFromHelpdeskChat) {
-            botRequest = { text: data.text, login: getKeyByVal(this.userThreads, 5) };
+            botRequest = { text: data.text, login: getKeyByVal(this.userThreads, 5) };//what a bummer, the api doesn't tell in which thread the update happened
+            //maybe it's just undocumented?
         } 
         else {
-            let threadID: number;
+            let rootMessage: number;
             if (!this.userThreads.has(data.from.login)) {
-                threadID = await this.sendMessage({ text: `Thread with ${data.from.display_name}`, chat_id: this.helpdeskChat.id });
-                this.userThreads.set(data.from.login, threadID); //saving thread id to forward messages here
+                rootMessage = await this.sendMessage({ text: `Thread with ${data.from.display_name}`, chat_id: this.helpdeskChat.id });
+                this.userThreads.set(data.from.login, rootMessage); //saving thread id to forward messages from this user to main chat
             }
             else
-                threadID = this.userThreads.get(data.from.login);
-            botRequest = { text: data.text, chat_id: this.helpdeskChat.id, thread_id: threadID };
+                rootMessage = this.userThreads.get(data.from.login);
+
+            botRequest = { text: data.text, chat_id: this.helpdeskChat.id, thread_id: rootMessage };
         }
 
         const messageID = await this.sendMessage(botRequest);
         if (messageID == -1)
             console.error(`COULDN'T FORWARD THE MESSAGE. Update Data:\n${JSON.stringify(data)}\n Bot Request Data:\n ${JSON.stringify(botRequest)}`)
+            //Such errors should be saved for retrying
     }
 
     async getUpdates(data: UpdateRequest): Promise<Update[]> {
@@ -113,10 +123,16 @@ export class Bot {
             members:[]
         };
         this.helpdeskChat.id = await this.createChat(chatProps);
+        if (this.helpdeskChat.id === "missing")
+        {
+            console.error("Failed to create main group chat.");
+            this.botEnabled = false;
+            return;
+        }
         await this.sendMessage({ chat_id: this.helpdeskChat.id, text: "Welcome to the Helpdesk Chat." });
     }
 }
 //
     //|CreateChannel|CreateThread|AddUsers
-    //SendMessage|ForwardMessage|SendFile  //Forward by mapping chat_IDs to threads in other chat?
+    //SendMessage|ForwardMessage|SendFile  //Forward by mapping logins to threads for main chat?
     //GetFile| GetUpdate
