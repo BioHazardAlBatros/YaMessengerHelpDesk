@@ -1,0 +1,46 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+build/Release
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+###########
+# Mandatory
+.vs/
+.git/
+obj/
+bin/
+#.gitignore
+.gitattributes
+bot_data
+data/
+
+# Maybe ok not to ignore
+*.d.ts
+*.js
+*.js.map
+###########
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional cache
+.eslintcache
+.stylelintcache
+
+# dotenv environment variable files
+.env
+.env.*
+!.env.example

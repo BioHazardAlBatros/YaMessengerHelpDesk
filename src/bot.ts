@@ -37,7 +37,7 @@ export class Bot {
             await sleep(sleepTime);
 
             saveTimer += sleepTime;
-            if (saveTimer > 20000) {
+            if (saveTimer > 100000) {
                 saveTimer = 0;
                 saveSettings(this.settings, process.env.DATAFILE); //How should we react to save errors?
             }
