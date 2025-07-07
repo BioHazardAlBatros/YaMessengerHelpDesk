@@ -2,13 +2,22 @@ import fs from 'fs';
 import path from 'path';
 import type { Settings } from "./types";
 
-export function loadSettings(path:string): Settings | boolean
-{
-// Map should be loaded this way - new Map(JSON.parse(data_file).userThreads);
-    try {
-        const data: Settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
+const dataPath = path.join(__dirname, process.env.DATADIR);
+const POSSIBLE_MAPS = ["userChats", "userThreads"];
 
-        //rewrite for universality
+export function loadSettings(filename:string = "bot_data"): Settings | boolean
+{
+    const fullPath: string = path.join(dataPath, filename);
+    if (!fs.existsSync(fullPath)) {
+        console.error(`Couldn't find file ${fullPath}. Falling back to default settings.`);
+        return false;
+    }
+
+// Map should be loaded this way - new Map(loadedSettings.userThreads);
+    try {
+        const data: Settings = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
+
+        //rewrite
         if (data.hasOwnProperty("userChats"))
             data.userChats = new Map(data.userChats);
 
@@ -20,8 +29,12 @@ export function loadSettings(path:string): Settings | boolean
     }
 };
 
-const POSSIBLE_MAPS = ["userChats", "userThreads"];
 export function saveSettings(settings: Settings,filename:string = "bot_data"): boolean {
+    if (!fs.existsSync(dataPath))
+        fs.mkdirSync(dataPath, {recursive:true});
+
+    const fullPath: string = path.join(dataPath, filename);
+
     //we need a shallow copy because we want to convert the map
     const tempCopy: object = {...settings};
 
@@ -32,7 +45,7 @@ export function saveSettings(settings: Settings,filename:string = "bot_data"): b
     }
 
     try {
-        fs.writeFileSync(filename, JSON.stringify(tempCopy), 'utf-8');
+        fs.writeFileSync(fullPath, JSON.stringify(tempCopy), 'utf-8');
         console.log(`[${new Date().toLocaleString()}] Saved data.`)
         return true;
     }
@@ -43,7 +56,7 @@ export function saveSettings(settings: Settings,filename:string = "bot_data"): b
 };
 
 export async function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms) );
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function getKeyByVal<K, V>(map: Map<K, V>, target: V): K | undefined {

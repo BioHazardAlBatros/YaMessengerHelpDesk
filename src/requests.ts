@@ -1,6 +1,7 @@
+import { type } from "os";
 import type { Chat, Button, File, Image, Sender, Vote, Update, User } from "./types";
 
-//File Response opens up a stream, needs other response type.
+//File Response opens up a binary stream, needs other response type.
 export type Response = {
     ok: boolean;
     description?: string;
@@ -65,16 +66,21 @@ export type UpdateRequest = {
     offset?: number;
 }
 
-const baseURL: string = process.env.MOCK_BASE_URL;
-
-//convert to type
-const reqHeaders = {
-    Authorization: `OAuth ${process.env.TOKEN}`,
-    "Content-Type": "application/json"  // <--- must be changed, file loading needs different fields
+type Header = {
+    Authorization: string,
+    "Content-Type"?: "application/json";
 }
 
-export async function sendRequest<req, res>(endpointRoute: string, data: req, requestName: string = "unnamed", reqMethod: string = "POST"): Promise<res> {
+const baseURL: string = (process.env.MODE !== "DEV")? process.env.YANDEX_BASE_URL : process.env.MOCK_BASE_URL;
+
+export async function sendRequest<req, res>(endpointRoute: string, data: req, requestName: string = "unnamed", reqMethod: string = "POST", isFile:boolean = false): Promise<res> {
+
     const reqBody = JSON.stringify(data);
+    const reqHeaders: Header = { Authorization: `OAuth ${process.env.TOKEN}` };
+    if (!isFile)
+        reqHeaders["Content-Type"] = "application/json";
+
+    //fetch should be error handled, what if the servers are unavailable
     const response = await fetch(`${baseURL}/${endpointRoute}`,
         {
             method: reqMethod,

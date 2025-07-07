@@ -4,18 +4,11 @@ import { sendRequest, type Response, type CreateChatRequest, type SendMessageReq
 
 
 export class Bot {
-    private readonly token: string; // maybe unneeded
+    private readonly token: string; // maybe not needed
     private botEnabled: boolean;
     private failedUpdates: Array<Update>;
 
     private settings: Settings;
-//    private updateOffset: number;
-
-//    private userChats: Map<string, string>;
-//    private admins: Array<User>;
-//    private userThreads: Map<string,number>;
-//    private helpdeskChat: Chat;
-
 
     constructor(newToken: string, newSettings: Settings) {
         this.token = newToken;
@@ -30,13 +23,17 @@ export class Bot {
         console.log("Bot enabled. Trying to poll updates...");
 
 //Currently not needed
-/*        if (this.helpdeskChat.id == "missing") //ask for confirmation????????
+/*        if (this.settings.helpdeskChat.id == "missing")
             await this.createHelpdeskChat();
 */
         while(this.botEnabled)
         {
-            const updates: Update[] = await this.getUpdates({limit:25,offset:this.settings.updateOffset});
-            updates.forEach(await this.processUpdate,this); //current {this} has to be passed since the context will change inside callback function otherwise
+            const updates: Update[] = await this.getUpdates({ limit: this.settings.limit, offset: this.settings.updateOffset });
+
+//            updates.forEach(this.processUpdate, this);
+            //Could be asynchronous and maybe even should be, but for now i need it synchronous
+            for (const item of updates)
+                await this.processUpdate(item);
             await sleep(sleepTime);
 
             saveTimer += sleepTime;
@@ -46,6 +43,7 @@ export class Bot {
             }
         }
     };
+
     async processUpdate(data: Update): Promise<void> {
         //Getting the max update_id from the UpdateArr to set the new update offset, because every record with id lower than that is not available anymore
         if (data.update_id >= this.settings.updateOffset)
@@ -55,16 +53,22 @@ export class Bot {
         if (data.from.robot || data.chat.type === "channel")
             return;
 
-        let botRequest: SendMessageRequest;
         const isFromPrivateChat: boolean = (data.chat.type === "private");
+
         const hasText: boolean = data.hasOwnProperty("text");
         const hasFiles: boolean = data.hasOwnProperty("file");
         const hasGallery: boolean = data.hasOwnProperty("images");
+        const hasSticker: boolean = data.hasOwnProperty("sticker");
+        const hasForwardedMessages: boolean = data.hasOwnProperty("forwarded_messages");
+
+//        const destinationProp: object = {[(isFromPrivateChat) ? "chat_id" : "login"]:undefined};
+
+        let botTextMessage: SendMessageRequest;
 
         if (isFromPrivateChat) {
             let assosiatedChatID: string;
 
-            //Checking if the user already has a designed helpdesk chat, if not - try to create one and forward the message here
+            //Checking if the user already has a designated helpdesk chat, if not - try to create one and forward the message here
             if (!this.settings.userChats.has(data.from.login)) {
                 const chatProps: CreateChatRequest = {
                     name: `Helpdesk: ${data.from.display_name}`,
@@ -76,7 +80,6 @@ export class Bot {
 
                 assosiatedChatID = await this.createChat(chatProps);
                 this.settings.userChats.set(data.from.login, assosiatedChatID);
-
                 if (assosiatedChatID === "missing") {
                     this.failedUpdates.push(data);
                     return;
@@ -85,10 +88,10 @@ export class Bot {
             else
                 assosiatedChatID = this.settings.userChats.get(data.from.login);
 
-            botRequest = { text: data.text, chat_id: assosiatedChatID }; //Maybe put text later?
+            botTextMessage = { text: data.text, chat_id: assosiatedChatID };
         }
         else
-            botRequest = { text: data.text, login: getKeyByVal(this.settings.userChats, data.chat.id) };
+            botTextMessage = { text: data.text, login: getKeyByVal(this.settings.userChats, data.chat.id) };
 /*
     if(hasText)
         botRequest.text = data.text;
@@ -101,59 +104,17 @@ export class Bot {
          botRequest.image = file;
      }
 */
-        const messageID = await this.sendMessage(botRequest);
+        const messageID = await this.sendMessage(botTextMessage);
         //Errors should be saved for retrying
         if (messageID === -1) {
-            console.error(`COULDN'T FORWARD THE MESSAGE. Update Data:\n${JSON.stringify(data)}\n Bot Request Data:\n ${JSON.stringify(botRequest)}`);
+            console.error(`COULDN'T FORWARD THE TEXT MESSAGE. Update Data:\n${JSON.stringify(data)}\n Bot Request Data:\n ${JSON.stringify(botTextMessage)}`);
             this.failedUpdates.push(data);
         }
     }
 
-        //Commented out due to API roadblock with Update type not having thread_id property. Unify 
-/*    async processUpdate(data: Update): Promise<void> {
-        //Getting the max update_id from the UpdateArr to set the new update offset, because every record with id lower than that is not available anymore
-        if (data.update_id >= this.updateOffset)
-            this.updateOffset = data.update_id + 1;
-
-        //Presumably will ignore the bot itself?
-        if (data.from.robot)
-            return;
-
-        let botRequest: SendMessageRequest;
-        const isFromHelpdeskChat: boolean = (data.chat.type === this.helpdeskChat.type && data.chat.id === this.helpdeskChat.id); // === or ==?
-        const hasText: boolean = data.hasOwnProperty("text");
-        const hasFiles: boolean = data.hasOwnProperty("file");
-        const hasGallery: boolean = data.hasOwnProperty("images");
-
-        if (isFromHelpdeskChat) {
-            botRequest = { text: data.text, login: getKeyByVal(this.userThreads, 5) };//what a bummer, the api doesn't tell in which thread the update happened
-            //maybe it's just undocumented?
-        } 
-        else {
-            let rootMessage: number;
-            if (!this.userThreads.has(data.from.login)) {
-                rootMessage = await this.sendMessage({ text: `Thread with ${data.from.display_name}`, chat_id: this.helpdeskChat.id });
-                this.userThreads.set(data.from.login, rootMessage); //saving thread id to forward messages from this user to main chat
-            }
-            else
-                rootMessage = this.userThreads.get(data.from.login);
-
-            botRequest = { text: data.text, chat_id: this.helpdeskChat.id, thread_id: rootMessage };
-        }
-
-        const messageID = await this.sendMessage(botRequest);
-        if (messageID == -1)
-            console.error(`COULDN'T FORWARD THE MESSAGE. Update Data:\n${JSON.stringify(data)}\n Bot Request Data:\n ${JSON.stringify(botRequest)}`)
-            //Such errors should be saved for retrying
-    }*/
-
     async getUpdates(data: UpdateRequest): Promise<Update[]> {
         const res = await sendRequest<UpdateRequest, Response>("messages/getUpdates", data, "Polling");
 
-        //Getting the max update_id from the UpdateArr for calculating the new update offset, because every record with id lower than that is not available anymore
-/*        this.updateOffset = res.updates.reduce(
-            (max, item): number => { return (item.update_id > max) ? item.update_id : max }, 0) + 1;
-*/
         if (process.env.MODE === "DEV")
             console.log(res);
 
@@ -161,6 +122,10 @@ export class Bot {
             return Array() as Update[];
         return res.updates as Update[];
     }
+
+//Galleries and documents will be both handled by these
+    async getFile(): Promise<void> { };
+    async sendFile(): Promise<void> { };
 
     async sendMessage(data: SendMessageRequest): Promise<number> {
         const res = await sendRequest<SendMessageRequest, Response>("messages/sendText", data, "Send Message");
@@ -180,7 +145,44 @@ export class Bot {
         return res.chat_id as string;
     }
 
-    //Commented out due to API roadblock with Update type not having thread_id property.
+    //Commented out due to API roadblock with Update type possibly not having thread_id property.
+    /*    async processUpdate(data: Update): Promise<void> {
+            //Getting the max update_id from the UpdateArr to set the new update offset, because every record with id lower than that is not available anymore
+            if (data.update_id >= this.updateOffset)
+                this.updateOffset = data.update_id + 1;
+    
+            //Presumably will ignore the bot itself?
+            if (data.from.robot)
+                return;
+    
+            let botRequest: SendMessageRequest;
+            const isFromHelpdeskChat: boolean = (data.chat.type === this.helpdeskChat.type && data.chat.id === this.helpdeskChat.id); // === or ==?
+            const hasText: boolean = data.hasOwnProperty("text");
+            const hasFiles: boolean = data.hasOwnProperty("file");
+            const hasGallery: boolean = data.hasOwnProperty("images");
+    
+            if (isFromHelpdeskChat) {
+                botRequest = { text: data.text, login: getKeyByVal(this.userThreads, 5) };//what a bummer, the api doesn't tell in which thread the update happened
+                //maybe it's just undocumented?
+            } 
+            else {
+                let rootMessage: number;
+                if (!this.userThreads.has(data.from.login)) {
+                    rootMessage = await this.sendMessage({ text: `Thread with ${data.from.display_name}`, chat_id: this.helpdeskChat.id });
+                    this.userThreads.set(data.from.login, rootMessage); //saving thread id to forward messages from this user to main chat
+                }
+                else
+                    rootMessage = this.userThreads.get(data.from.login);
+    
+                botRequest = { text: data.text, chat_id: this.helpdeskChat.id, thread_id: rootMessage };
+            }
+    
+            const messageID = await this.sendMessage(botRequest);
+            if (messageID == -1)
+                console.error(`COULDN'T FORWARD THE MESSAGE. Update Data:\n${JSON.stringify(data)}\n Bot Request Data:\n ${JSON.stringify(botRequest)}`)
+                //Such errors should be saved for retrying
+        }*/
+
 /*    async createHelpdeskChat(): Promise<void> {
         const chatProps: CreateChatRequest = {
             name: "Helpdesk",
@@ -202,4 +204,4 @@ export class Bot {
 //
     //|CreateChannel|CreateThread|AddUsers
     //SendFile
-    //GetFile| GetUpdate
+    //GetFile

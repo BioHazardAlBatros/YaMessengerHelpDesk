@@ -1,11 +1,11 @@
 export type Settings = {
     admins: User[],
     updateOffset: number,
+    limit:number,
     userChats?: Map<string,string>,
     userThreads?: Map<string, number>,
     helpdeskChat?: Chat;
 }
-
 
 export type Chat = {
     type: "private" | "group" | "channel";
