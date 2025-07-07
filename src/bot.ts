@@ -1,4 +1,4 @@
-import { getKeyByVal,sleep } from "./util";
+import { getKeyByVal,sleep, saveSettings } from "./util";
 import type { Chat, Button, File, Image, Sender, Vote, Update, User, Settings } from "./types";
 import { sendRequest, type Response, type CreateChatRequest, type SendMessageRequest, type UpdateRequest } from "./requests";
 
@@ -8,10 +8,11 @@ export class Bot {
     private botEnabled: boolean;
     private failedUpdates: Array<Update>;
 
-    private updateOffset: number;
+    private settings: Settings;
+//    private updateOffset: number;
 
-    private userChats: Map<string, string>;
-    private admins: Array<User>;
+//    private userChats: Map<string, string>;
+//    private admins: Array<User>;
 //    private userThreads: Map<string,number>;
 //    private helpdeskChat: Chat;
 
@@ -20,37 +21,38 @@ export class Bot {
         this.token = newToken;
         this.botEnabled = true;
         this.failedUpdates = new Array<Update>();
-
-//        this.helpdeskChat = { type: "group", id: "missing" };         //SHOULD BE LOADED FROM FILE IF FILE IS PRESENT AND CORRECT
-        this.admins = newSettings.admins;
-        this.updateOffset = newSettings.updateOffset;
-        this.userChats = newSettings.userChats;
-//        this.userThreads = new Map<string,number>();
+        this.settings = { ...newSettings };
     };
 
     async run(): Promise<void> {
+        const sleepTime: number = 10000; //maybe tie to settings?
+        let saveTimer: number = 0;
         console.log("Bot enabled. Trying to poll updates...");
 
 //Currently not needed
 /*        if (this.helpdeskChat.id == "missing") //ask for confirmation????????
             await this.createHelpdeskChat();
 */
-        while (this.botEnabled)
+        while(this.botEnabled)
         {
-            const updates: Update[] = await this.getUpdates({limit:25,offset:this.updateOffset});
+            const updates: Update[] = await this.getUpdates({limit:25,offset:this.settings.updateOffset});
             updates.forEach(await this.processUpdate,this); //current {this} has to be passed since the context will change inside callback function otherwise
-            await sleep(10000);
+            await sleep(sleepTime);
 
-          //  this.sendMessage({ chat_id: "123312", text: "Hello world", inline_keyboard: [{ text: "Hello" }] });
+            saveTimer += sleepTime;
+            if (saveTimer > 20000) {
+                saveTimer = 0;
+                saveSettings(this.settings, process.env.DATAFILE); //How should we react to save errors?
+            }
         }
     };
     async processUpdate(data: Update): Promise<void> {
         //Getting the max update_id from the UpdateArr to set the new update offset, because every record with id lower than that is not available anymore
-        if (data.update_id >= this.updateOffset)
-            this.updateOffset = data.update_id + 1;
+        if (data.update_id >= this.settings.updateOffset)
+            this.settings.updateOffset = data.update_id + 1;
 
-        //Presumably will ignore the bot itself?
-        if (data.from.robot)
+        //Presumably will ignore the bot itself and channels?
+        if (data.from.robot || data.chat.type === "channel")
             return;
 
         let botRequest: SendMessageRequest;
@@ -63,17 +65,17 @@ export class Bot {
             let assosiatedChatID: string;
 
             //Checking if the user already has a designed helpdesk chat, if not - try to create one and forward the message here
-            if (!this.userChats.has(data.from.login)) {
+            if (!this.settings.userChats.has(data.from.login)) {
                 const chatProps: CreateChatRequest = {
                     name: `Helpdesk: ${data.from.display_name}`,
                     desc: `Helpdesk chat with ${data.from.display_name}`,
-                    admins: this.admins,
+                    admins: this.settings.admins,
                     channel: false,
                     members: Array()
                 };
 
                 assosiatedChatID = await this.createChat(chatProps);
-                this.userChats.set(data.from.login, assosiatedChatID);
+                this.settings.userChats.set(data.from.login, assosiatedChatID);
 
                 if (assosiatedChatID === "missing") {
                     this.failedUpdates.push(data);
@@ -81,12 +83,12 @@ export class Bot {
                 }
             }
             else
-                assosiatedChatID = this.userChats.get(data.from.login);
+                assosiatedChatID = this.settings.userChats.get(data.from.login);
 
             botRequest = { text: data.text, chat_id: assosiatedChatID }; //Maybe put text later?
         }
         else
-            botRequest = { text: data.text, login: getKeyByVal(this.userChats, data.chat.id) };
+            botRequest = { text: data.text, login: getKeyByVal(this.settings.userChats, data.chat.id) };
 /*
     if(hasText)
         botRequest.text = data.text;
@@ -199,5 +201,5 @@ export class Bot {
 }
 //
     //|CreateChannel|CreateThread|AddUsers
-    //SendMessage|ForwardMessage|SendFile  //Forward by mapping logins to threads for main chat?
+    //SendFile
     //GetFile| GetUpdate
