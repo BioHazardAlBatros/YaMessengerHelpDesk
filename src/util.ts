@@ -1,16 +1,44 @@
 import fs from 'fs';
 import path from 'path';
-import type { Chat, User, Config } from "./types";
+import type { Settings } from "./types";
 
-export function loadConfig(): Config | undefined
+export function loadSettings(path:string): Settings | boolean
 {
-    return undefined;
-// Map should be loaded this way - new Map(JSON.parse(CONFIG_STRING).userThreads);
+// Map should be loaded this way - new Map(JSON.parse(data_file).userThreads);
+    try {
+        const data: Settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
+
+        if (data.hasOwnProperty("userChats"))
+            data.userChats = new Map(data.userChats);
+
+        return data as Settings;
+    }
+    catch (fileError) {
+        console.error(`Failed to load config, description:${fileError}`);
+        return false;
+    }
 };
 
-export function saveConfig(save:Config): boolean {
-    return false;
-// Map should be saved this way - JSON.stringify(Array.from(save.userThreads));
+export function saveSettings(settings: Settings,filename:string = "bot_data"): boolean {
+    //we need a copy because we want to convert the map
+    let tempClone: object;
+
+    for (const prop in settings) {
+    // To convert a map to JSON we have to convert it to an array of entries first
+        if (settings[prop] instanceof Map)
+            tempClone[prop] = Array.from(settings[prop].entries());
+        else
+            tempClone[prop] = settings[prop];
+    }
+
+    try {
+        fs.writeFileSync(filename, JSON.stringify(tempClone), 'utf-8');
+        return true;
+    }
+    catch (fileError) {
+        console.error(`Couldn't save settings. Description:${fileError}`);
+        return false;
+    }
 };
 
 export async function sleep(ms: number): Promise<void> {
@@ -38,3 +66,21 @@ export function getKeyByVal<K, V>(map: Map<K, V>, target: V): K | undefined {
     }
   }
 }*/
+
+
+/*
+async function downloadFile(url, outputPath) {
+  const response = await fetch(url);
+
+  if (!response.ok || !response.body) {
+    throw new Error(`Failed to fetch ${url}. Status: ${response.status}`);
+  }
+
+  const fileStream = fs.createWriteStream(outputPath);
+  console.log(`Downloading file from ${url} to ${outputPath}`);
+
+  await pipeline(response.body, fileStream);
+  console.log('File downloaded successfully');
+}
+
+*/

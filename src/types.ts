@@ -1,8 +1,9 @@
-export type Config = {
+export type Settings = {
+    admins: User[],
     updateOffset: number,
-    userThreads: Map<string, number>,
-    helpdeskChat: Chat,
-    admins: User[];
+    userChats?: Map<string,string>,
+    userThreads?: Map<string, number>,
+    helpdeskChat?: Chat;
 }
 
 

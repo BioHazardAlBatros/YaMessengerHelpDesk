@@ -1,7 +1,15 @@
 import "dotenv/config";
+import { Settings } from "./types";
 import { Bot } from "./bot";
-import { loadConfig } from "./util"
+import { loadSettings } from "./util"
 
-const helpdeskBot = new Bot(process.env.TOKEN, loadConfig());
+//const defaultSettings: Settings = { updateOffset: 0, admins: [{login:"CHANGE ME"}] };
+const defaultSettings: Settings = { updateOffset: 0, admins: [] };
+let loadedSettings: Settings | boolean = loadSettings("bot_data");
+
+if (!loadedSettings)
+    loadedSettings = defaultSettings;
+
+const helpdeskBot = new Bot(process.env.TOKEN, loadedSettings as Settings);
 
 helpdeskBot.run();
