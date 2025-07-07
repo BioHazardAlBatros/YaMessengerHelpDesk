@@ -65,7 +65,7 @@ export type UpdateRequest = {
     offset?: number;
 }
 
-const baseURL: string = process.env.MOCK_BASE_URL;
+const base_url: string = process.env.MOCK_BASE_URL;
 
 //convert to type
 const reqHeaders = {
@@ -75,7 +75,7 @@ const reqHeaders = {
 
 export async function sendRequest<req, res>(endpointRoute: string, data: req, requestName: string = "unnamed", reqMethod: string = "POST"): Promise<res> {
     const reqBody = JSON.stringify(data);
-    const response = await fetch(`${baseURL}/${endpointRoute}`,
+    const response = await fetch(`${base_url}/${endpointRoute}`,
         {
             method: reqMethod,
             headers: reqHeaders,
