@@ -1,0 +1,60 @@
+    //Commented out due to API roadblock with Update type possibly not having thread_id property.
+    /*    async processUpdate(data: Update): Promise<void> {
+            //Getting the max update_id from the UpdateArr to set the new update offset, because every record with id lower than that is not available anymore
+            if (data.update_id >= this.updateOffset)
+                this.updateOffset = data.update_id + 1;
+    
+            //Presumably will ignore the bot itself?
+            if (data.from.robot)
+                return;
+    
+            let botRequest: SendMessageRequest;
+            const isFromHelpdeskChat: boolean = (data.chat.type === this.helpdeskChat.type && data.chat.id === this.helpdeskChat.id); // === or ==?
+            const hasText: boolean = data.hasOwnProperty("text");
+            const hasFiles: boolean = data.hasOwnProperty("file");
+            const hasGallery: boolean = data.hasOwnProperty("images");
+    
+            if (isFromHelpdeskChat) {
+                botRequest = { text: data.text, login: getKeyByVal(this.userThreads, 5) };//what a bummer, the api doesn't tell in which thread the update happened
+                //maybe it's just undocumented?
+            } 
+            else {
+                let rootMessage: number;
+                if (!this.userThreads.has(data.from.login)) {
+                    rootMessage = await this.sendMessage({ text: `Thread with ${data.from.display_name}`, chat_id: this.helpdeskChat.id });
+                    this.userThreads.set(data.from.login, rootMessage); //saving thread id to forward messages from this user to main chat
+                }
+                else
+                    rootMessage = this.userThreads.get(data.from.login);
+    
+                botRequest = { text: data.text, chat_id: this.helpdeskChat.id, thread_id: rootMessage };
+            }
+    
+            const messageID = await this.sendMessage(botRequest);
+            if (messageID == -1)
+                console.error(`COULDN'T FORWARD THE MESSAGE. Update Data:\n${JSON.stringify(data)}\n Bot Request Data:\n ${JSON.stringify(botRequest)}`)
+                //Such errors should be saved for retrying
+        }*/
+
+/*    async createHelpdeskChat(): Promise<void> {
+        const chatProps: CreateChatRequest = {
+            name: "Helpdesk",
+            desc: "Helpdesk chat",
+            admins: this.admins,
+            channel: false,
+            members:[]
+        };
+        this.helpdeskChat.id = await this.createChat(chatProps);
+        if (this.helpdeskChat.id === "missing")
+        {
+            console.error("Failed to create main group chat.");
+            this.botEnabled = false;
+            return;
+        }
+        await this.sendMessage({ chat_id: this.helpdeskChat.id, text: "Welcome to the Helpdesk Chat." });
+    }*/
+}
+//
+    //|CreateChannel|CreateThread|AddUsers
+    //SendFile
+    //GetFile

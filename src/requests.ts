@@ -1,10 +1,11 @@
-import { type } from "os";
+//import { type } from "os";
 import type { Chat, Button, File, Image, Sender, Vote, Update, User } from "./types";
 
 //File Response opens up a binary stream, needs other response type.
 export type Response = {
     ok: boolean;
-    description?: string;
+    detail?: string; //<---actually used
+    description?: string; //<---from documentation
 
     message_id?: number;
     chat_id?: string;
@@ -15,6 +16,33 @@ export type Response = {
 
     updates?: Update[];
 }
+
+export type FileStreamResponse = {
+
+}
+
+export type GetFileRequest = {
+    file_id: string;
+}
+
+type MediaRequestBase = {
+    chat_id?: string;
+    login?: string;
+    thread_id?: number; //message's timestamp
+}
+
+export interface SendFileRequest extends MediaRequestBase {
+    document: Buffer;
+}
+
+export interface SendImageRequest extends MediaRequestBase {
+    image: Buffer;
+}
+
+export interface SendGalleryRequest extends MediaRequestBase {
+    images: Buffer[];
+}
+
 
 type CreateChatRequestChannel = {
     name: string,
@@ -71,11 +99,11 @@ type Header = {
     "Content-Type"?: "application/json";
 }
 
-const baseURL: string = (process.env.MODE !== "DEV")? process.env.YANDEX_BASE_URL : process.env.MOCK_BASE_URL;
+const baseURL: string = (process.env.MODE === "DEV")? process.env.YANDEX_BASE_URL : process.env.MOCK_BASE_URL;
 
 export async function sendRequest<req, res>(endpointRoute: string, data: req, requestName: string = "unnamed", reqMethod: string = "POST", isFile:boolean = false): Promise<res> {
 
-    const reqBody = JSON.stringify(data);
+    const reqBody = (reqMethod === "POST") ? JSON.stringify(data) : undefined;
     const reqHeaders: Header = { Authorization: `OAuth ${process.env.TOKEN}` };
     if (!isFile)
         reqHeaders["Content-Type"] = "application/json";
@@ -96,7 +124,29 @@ export async function sendRequest<req, res>(endpointRoute: string, data: req, re
 
     const result: Response = await response.json();
     if (!result.ok)
-        console.error(`Request failed. Reason:${result.description} \nData:${reqBody}\n`);
+        console.error(`Request failed. Reason: ${result.detail} \nData:${reqBody}\n`);
 
     return result as res;
+}
+
+
+export async function checkConnection(): Promise<boolean> {
+    const reqHeaders: Header = { Authorization: `OAuth ${process.env.TOKEN}` };
+
+    try {
+        const response = await fetch(`${baseURL}/`,
+            {
+                method: "GET",
+                headers: reqHeaders,
+            });
+        if (process.env.MODE === "DEV")
+            console.log("HTTP status:", response.status);
+
+        if (response.status === 404)
+            return true;
+    }
+    catch (error) {
+        console.error(`Connection to the server failed. Reason:${error}`);
+        return false;
+    }
 }
